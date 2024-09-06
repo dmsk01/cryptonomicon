@@ -1,6 +1,6 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-    <!-- <div class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">
+    <div ref="loader" class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">
       <svg
         class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
         xmlns="http://www.w3.org/2000/svg"
@@ -14,7 +14,7 @@
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         ></path>
       </svg>
-    </div> -->
+    </div>
     <div class="container">
       <section>
         <div class="flex">
@@ -70,11 +70,40 @@
       </section>
 
       <template v-if="tickers.length">
+        <div>
+          <h3>Фильтрация:</h3>
+          <input
+            v-model="filter"
+            name="filter"
+            class="block w-full mb-3 pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
+            autocomplete="off"
+            type="text"
+            placeholder=""
+          />
+          <div class="flex items-center">
+            <button
+              class="font-medium w-full mr-5 text-white bg-gray-600 px-4 py-4 sm:px-6 text-md"
+              type="button"
+              v-if="page > 1"
+              @click="page = page - 1"
+            >
+              Назад
+            </button>
+            <button
+              @click="page = page + 1"
+              class="font-medium w-full text-white bg-gray-600 px-4 py-4 sm:px-6 text-md"
+              v-if="hasNextPage"
+              type="button"
+            >
+              Вперед
+            </button>
+          </div>
+        </div>
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
             :key="t.name + idx"
-            v-for="(t, idx) of tickers"
+            v-for="(t, idx) of filteredTickers()"
             @click="select(t)"
             :class="{
               'border-4': sel === t,
@@ -159,11 +188,21 @@ export default {
       graph: [],
       isError: false,
       tags: [],
+      page: 1,
+      filter: "",
+      hasNextPage: true,
     };
   },
 
   created() {
     this.fetchData();
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
     const tickersData = localStorage.getItem("cryptonomicon-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
@@ -173,7 +212,20 @@ export default {
     }
   },
 
+  mounted() {
+    setTimeout(() => {
+      this.$refs.loader.style.display = "none";
+    }, 600);
+  },
+
   methods: {
+    filteredTickers() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+      const filteredTickers = this.tickers.filter((ticker) => ticker.name.includes(this.filter.toUpperCase()));
+      this.hasNextPage = filteredTickers.length > end;
+      return filteredTickers.slice(start, end);
+    },
     handleChange(event) {
       if (!event.target.value.length || !this.coinList) {
         this.tags = [];
@@ -224,6 +276,7 @@ export default {
       }
       const currentTicker = { name: this.ticker.toUpperCase(), price: "-" };
       this.tickers.push(currentTicker);
+      this.filter = "";
 
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
 
@@ -231,6 +284,7 @@ export default {
     },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name);
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
     select(ticker) {
       this.sel = ticker;
@@ -252,7 +306,29 @@ export default {
       }
     },
   },
+
+  watch: {
+    filter() {
+      this.page = 1;
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+    page() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+  },
 };
 </script>
 
-<style></style>
+<style>
+[v-cloak] {
+  display: none;
+}
+</style>
