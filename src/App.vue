@@ -164,6 +164,13 @@ export default {
 
   created() {
     this.fetchData();
+    const tickersData = localStorage.getItem("cryptonomicon-list");
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        this.subscribeToUpdates(ticker.name);
+      });
+    }
   },
 
   methods: {
@@ -192,21 +199,16 @@ export default {
       this.$refs.coinInput.focus();
       this.isTickerExist();
     },
-    add() {
-      if (this.isTickerExist() || !this.ticker.length) {
-        return;
-      }
-      const currentTicker = { name: this.ticker.toUpperCase(), price: "-" };
-      this.tickers.push(currentTicker);
+    subscribeToUpdates(tickerName) {
       setInterval(async () => {
         try {
           const f = await fetch(
-            `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=62ff345cb19536a8e46e8e973cb0a9bd752c5000f4ae6145e57d09e5de3b97c9`
+            `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=62ff345cb19536a8e46e8e973cb0a9bd752c5000f4ae6145e57d09e5de3b97c9`
           );
           const data = await f.json();
-          const tickerForSetPrice = this.tickers.find((t) => t.name === currentTicker.name);
+          const tickerForSetPrice = this.tickers.find((t) => t.name === tickerName);
           tickerForSetPrice.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-          if (this.sel?.name === currentTicker.name) {
+          if (this.sel?.name === tickerName) {
             this.graph.push(data.USD);
           }
         } catch (error) {
@@ -215,6 +217,17 @@ export default {
       }, 3000);
       this.ticker = "";
       this.tags = [];
+    },
+    add() {
+      if (this.isTickerExist() || !this.ticker.length) {
+        return;
+      }
+      const currentTicker = { name: this.ticker.toUpperCase(), price: "-" };
+      this.tickers.push(currentTicker);
+
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
+
+      this.subscribeToUpdates(currentTicker.name);
     },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name);
