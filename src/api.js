@@ -1,16 +1,19 @@
 const API_KEY = "62ff345cb19536a8e46e8e973cb0a9bd752c5000f4ae6145e57d09e5de3b97c9";
+const AGGREGATE_INDEX = "5";
 const searchParams = new URLSearchParams({
   api_key: API_KEY,
-});
-console.log(searchParams.toString());
+}).toString();
+const WS_URL = `wss://streamer.cryptocompare.com/v2?${searchParams}`;
 
 const tickersHandlers = new Map();
 
-const AGGREGATE_INDEX = "5";
+// function computeUSDTickerPricefromBTC(tickerInBtc, btcInUsd) {
+//   return tickerInBtc * btcInUsd;
+// }
 
 function sendToWebSocket(message) {
   const stringifiedMessage = JSON.stringify(message);
-  const socket = new WebSocket(`wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`);
+  const socket = new WebSocket(WS_URL);
 
   if (socket.readyState === WebSocket.OPEN) {
     socket.send(stringifiedMessage);
@@ -30,10 +33,12 @@ function sendToWebSocket(message) {
     if (type !== AGGREGATE_INDEX || newPrice === undefined) {
       return;
     }
+
     const handlers = tickersHandlers.get(currency) ?? [];
-    handlers.forEach((fn) => fn(newPrice));
+    handlers.forEach((fn) => fn(newPrice, currency));
   });
 }
+
 function subscribeToTickerOnWS(ticker) {
   const message = {
     action: "SubAdd",
@@ -41,6 +46,7 @@ function subscribeToTickerOnWS(ticker) {
   };
   sendToWebSocket(message);
 }
+
 function unsubscribeToTickerOnWS(ticker) {
   const message = {
     action: "SubRemove",
