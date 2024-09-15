@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+  <div id="root" class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
     <!-- <div ref="loader" class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">
       <svg
         class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
@@ -178,6 +178,7 @@
 
 <script>
 import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import { initializeWorker, listenToWorkerMessages } from "./sharedWorkerService";
 
 export default {
   name: "App",
@@ -219,6 +220,10 @@ export default {
   },
 
   mounted() {
+    initializeWorker();
+    listenToWorkerMessages((event) => {
+      console.log(event.data);
+    });
     window.addEventListener("resize", this.calculateMaxGraphElements);
     setTimeout(() => {
       //if (this.$refs.loader) {
@@ -346,15 +351,6 @@ export default {
     },
     select(ticker) {
       this.selectedTicker = ticker;
-    },
-    async fetchData() {
-      try {
-        const response = await fetch("https://min-api.cryptocompare.com/data/all/coinlist?summary=true");
-        const data = await response.json();
-        this.coinList = data.Data;
-      } catch (error) {
-        console.error("Ошибка при получении данных:", error);
-      }
     },
   },
 

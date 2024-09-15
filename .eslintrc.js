@@ -12,4 +12,7 @@ module.exports = {
     "no-debugger": process.env.NODE_ENV === "production" ? "warn" : "off",
     "prettier/prettier": ["error", { printWidth: 120, trailingComma: "es5" }],
   },
+  globals: {
+    onconnect: "writable",
+  },
 };

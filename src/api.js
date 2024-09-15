@@ -1,3 +1,5 @@
+import { initializeWorker, sendMessageToWorker } from "./sharedWorkerService";
+
 const API_KEY = "62ff345cb19536a8e46e8e973cb0a9bd752c5000f4ae6145e57d09e5de3b97c9";
 const AGGREGATE_INDEX = "5";
 const searchParams = new URLSearchParams({
@@ -6,10 +8,7 @@ const searchParams = new URLSearchParams({
 const WS_URL = `wss://streamer.cryptocompare.com/v2?${searchParams}`;
 
 const tickersHandlers = new Map();
-
-// function computeUSDTickerPricefromBTC(tickerInBtc, btcInUsd) {
-//   return tickerInBtc * btcInUsd;
-// }
+initializeWorker();
 
 function sendToWebSocket(message) {
   const stringifiedMessage = JSON.stringify(message);
@@ -34,6 +33,8 @@ function sendToWebSocket(message) {
       return;
     }
 
+    sendMessageToWorker({ currency, newPrice });
+
     const handlers = tickersHandlers.get(currency) ?? [];
     handlers.forEach((fn) => fn(newPrice, currency));
   });
@@ -42,7 +43,11 @@ function sendToWebSocket(message) {
 function subscribeToTickerOnWS(ticker) {
   const message = {
     action: "SubAdd",
-    subs: [`${AGGREGATE_INDEX}~CCCAGG~${ticker}~USD`],
+    subs: [
+      `${AGGREGATE_INDEX}~CCCAGG~${ticker}~USD`,
+      `${AGGREGATE_INDEX}~CCCAGG~BTC~USD`,
+      `${AGGREGATE_INDEX}~CCCAGG~TON~USD`,
+    ],
   };
   sendToWebSocket(message);
 }
@@ -50,7 +55,11 @@ function subscribeToTickerOnWS(ticker) {
 function unsubscribeToTickerOnWS(ticker) {
   const message = {
     action: "SubRemove",
-    subs: [`${AGGREGATE_INDEX}~CCCAGG~${ticker}~USD`],
+    subs: [
+      `${AGGREGATE_INDEX}~CCCAGG~${ticker}~USD`,
+      `${AGGREGATE_INDEX}~CCCAGG~BTC~USD`,
+      `${AGGREGATE_INDEX}~CCCAGG~TON~USD`,
+    ],
   };
   sendToWebSocket(message);
 }
