@@ -1,4 +1,5 @@
 import { initializeWorker, sendMessageToWorker } from "./sharedWorkerService";
+initializeWorker();
 
 const API_KEY = "62ff345cb19536a8e46e8e973cb0a9bd752c5000f4ae6145e57d09e5de3b97c9";
 const AGGREGATE_INDEX = "5";
@@ -8,7 +9,6 @@ const searchParams = new URLSearchParams({
 const WS_URL = `wss://streamer.cryptocompare.com/v2?${searchParams}`;
 
 const tickersHandlers = new Map();
-initializeWorker();
 
 function sendToWebSocket(message) {
   const stringifiedMessage = JSON.stringify(message);

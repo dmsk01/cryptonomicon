@@ -178,7 +178,7 @@
 
 <script>
 import { subscribeToTicker, unsubscribeFromTicker } from "./api";
-import { initializeWorker, listenToWorkerMessages } from "./sharedWorkerService";
+import { initializeWorker, sendMessageToWorker, listenToWorkerMessages } from "./sharedWorkerService";
 
 export default {
   name: "App",
@@ -222,7 +222,8 @@ export default {
   mounted() {
     initializeWorker();
     listenToWorkerMessages((event) => {
-      console.log(event.data);
+      const { currency, newPrice } = event.data;
+      this.updateTicker(currency, newPrice);
     });
     window.addEventListener("resize", this.calculateMaxGraphElements);
     setTimeout(() => {
@@ -285,6 +286,7 @@ export default {
       console.log(this.maxGraphElements);
     },
     updateTicker(tickerName, price) {
+      console.log("[update ticker]", tickerName, price);
       this.tickers
         .filter((t) => t.name === tickerName)
         .forEach((t) => {
@@ -339,7 +341,9 @@ export default {
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
       this.ticker = "";
-      subscribeToTicker(currentTicker.name, (newPrice) => this.updateTicker(currentTicker.name, newPrice));
+      subscribeToTicker(currentTicker.name, (newPrice) =>
+        sendMessageToWorker({ currency: currentTicker.name, newPrice })
+      );
     },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name);
@@ -351,6 +355,15 @@ export default {
     },
     select(ticker) {
       this.selectedTicker = ticker;
+    },
+    async fetchData() {
+      try {
+        const response = await fetch("https://min-api.cryptocompare.com/data/all/coinlist?summary=true");
+        const data = await response.json();
+        this.coinList = data.Data;
+      } catch (error) {
+        console.error("Ошибка при получении данных:", error);
+      }
     },
   },
 

@@ -3,7 +3,7 @@ let workerInstance;
 export function initializeWorker() {
   if (!workerInstance) {
     workerInstance = new SharedWorker("sharedWorker.js");
-    workerInstance.port.start(); // Запускаем связь
+    workerInstance.port.start();
   }
   return workerInstance;
 }
