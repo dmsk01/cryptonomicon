@@ -35,8 +35,8 @@ function sendToWebSocket(message) {
 
     sendMessageToWorker({ currency, newPrice });
 
-    const handlers = tickersHandlers.get(currency) ?? [];
-    handlers.forEach((fn) => fn(newPrice, currency));
+    // const handlers = tickersHandlers.get(currency) ?? [];
+    // handlers.forEach((fn) => fn(newPrice, currency));
   });
 }
 

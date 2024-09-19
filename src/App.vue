@@ -16,57 +16,7 @@
       </svg>
     </div>-->
     <div class="container">
-      <section>
-        <div class="flex">
-          <div class="max-w-xs">
-            <label for="wallet" class="block text-sm font-medium text-gray-700">Тикер</label>
-            <div class="mt-1 relative rounded-md shadow-md">
-              <input
-                v-model="ticker"
-                @keydown.enter="add"
-                @input="handleChange"
-                @change="handleChange"
-                ref="coinInput"
-                type="text"
-                name="wallet"
-                id="wallet"
-                class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
-                placeholder="Например DOGE"
-              />
-            </div>
-            <div v-if="tags.length" class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-              <span
-                v-for="tag in tags"
-                @click="changeTicker(tag)"
-                :key="tag"
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-                >{{ tag }}</span
-              >
-            </div>
-            <div v-if="isError" class="text-sm text-red-600">Такой тикер уже добавлен</div>
-          </div>
-        </div>
-        <button
-          @click="add"
-          type="button"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          <!-- Heroicon name: solid/mail -->
-          <svg
-            class="-ml-0.5 mr-2 h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="#ffffff"
-          >
-            <path
-              d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
-            />
-          </svg>
-          Добавить
-        </button>
-      </section>
+      <add-ticker @add-ticker="add" :disabled="tooManyTickersAdded" />
 
       <template v-if="tickers.length">
         <div>
@@ -101,8 +51,8 @@
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            :key="t.name"
-            v-for="t of paginatedTickers"
+            :key="t.name + idx"
+            v-for="(t, idx) of paginatedTickers"
             @click="select(t)"
             :class="{
               'border-4': selectedTicker === t,
@@ -136,7 +86,15 @@
           </div>
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
-        <section v-if="selectedTicker" class="relative">
+        <ticker-graph
+          v-if="selectedTicker"
+          :tickerName="selectedTicker.name"
+          :graph="graph"
+          :maxGraphElements="maxGraphElements"
+          @resetSelectedTicker="handleClose"
+          @setMaxGraphElements="maxGraphElements = $event"
+        />
+        <!-- <section v-if="selectedTicker" class="relative">
           <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">{{ selectedTicker.name }} - USD</h3>
           <div ref="graph" class="flex items-end border-gray-600 border-b border-l h-64">
             <div
@@ -170,7 +128,7 @@
               </g>
             </svg>
           </button>
-        </section>
+        </section> -->
       </template>
     </div>
   </div>
@@ -179,9 +137,16 @@
 <script>
 import { subscribeToTicker, unsubscribeFromTicker } from "./api";
 import { initializeWorker, sendMessageToWorker, listenToWorkerMessages } from "./sharedWorkerService";
+import AddTicker from "./components/AddTicker.vue";
+import TickerGraph from "./components/TickerGraph.vue";
 
 export default {
   name: "App",
+
+  components: {
+    AddTicker,
+    TickerGraph,
+  },
 
   data() {
     return {
@@ -190,10 +155,8 @@ export default {
       tickers: [],
       tickersPerPage: 6,
       selectedTicker: null,
-      graph: [],
       maxGraphElements: 1,
-      isError: false,
-      tags: [],
+      graph: [],
       page: 1,
       filter: "",
     };
@@ -214,7 +177,7 @@ export default {
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
       this.tickers.forEach((ticker) => {
-        subscribeToTicker(ticker.name, (newPrice) => this.updateTicker(ticker.name, newPrice));
+        subscribeToTicker(ticker.name, (newPrice) => sendMessageToWorker({ currency: ticker.name, newPrice }));
       });
     }
   },
@@ -225,16 +188,11 @@ export default {
       const { currency, newPrice } = event.data;
       this.updateTicker(currency, newPrice);
     });
-    window.addEventListener("resize", this.calculateMaxGraphElements);
     setTimeout(() => {
       //if (this.$refs.loader) {
       //  this.$refs.loader.style.display = "none";
       //}
     }, 600);
-  },
-
-  beforeDestroy() {
-    window.removeEventListener("resize", this.calculateMaxGraphElements);
   },
 
   computed: {
@@ -258,49 +216,35 @@ export default {
       return this.filteredTickers.length > this.endIndex;
     },
 
-    normalizedGraph() {
-      const maxValue = Math.max(...this.graph);
-      const minValue = Math.min(...this.graph);
-
-      if (maxValue === minValue) {
-        return this.graph.map(() => 50);
-      }
-
-      return this.graph.map((price) => 5 + ((price - minValue) * 95) / (maxValue - minValue));
-    },
-
     pageStateOptions() {
       return {
         filter: this.filter,
         page: this.page,
       };
     },
+    tooManyTickersAdded() {
+      return this.tickers.length >= 4;
+    },
   },
 
   methods: {
-    calculateMaxGraphElements() {
-      if (!this.$refs.graph || !this.$refs.graphElement) {
-        return;
-      }
-      this.maxGraphElements = this.$refs.graph.clientWidth / this.$refs.graphElement[0].offsetWidth;
-      console.log(this.maxGraphElements);
+    add(ticker) {
+      //if (this.isTickerExist() || !this.ticker.length) {
+      //  return;
+      //}
+      const currentTicker = { name: ticker.toUpperCase(), price: "-" };
+      this.tickers = [...this.tickers, currentTicker];
+      this.filter = "";
+      console.log(currentTicker);
+      //subscribeToTicker(currentTicker.name, (newPrice) =>
+      //  sendMessageToWorker({ currency: currentTicker.name, newPrice })
+      //);
     },
-    updateTicker(tickerName, price) {
-      console.log("[update ticker]", tickerName, price);
-      this.tickers
-        .filter((t) => t.name === tickerName)
-        .forEach((t) => {
-          if (t === this.selectedTicker) {
-            this.calculateMaxGraphElements();
+    handleClose() {
+      this.selectedTicker = null;
+      this.graph = [];
+    },
 
-            this.graph.push(price);
-            while (this.graph.length > this.maxGraphElements) {
-              this.graph.shift();
-            }
-          }
-          t.price = price;
-        });
-    },
     handleChange(event) {
       if (!event.target.value.length || !this.coinList) {
         this.tags = [];
@@ -315,6 +259,22 @@ export default {
         .filter((coin) => coin.Symbol.includes(searchTerm) || coin.FullName.includes(searchTerm))
         .map((el) => el.Symbol);
       this.tags = values?.slice(0, 4);
+    },
+
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter((t) => t.name === tickerName)
+        .forEach((t) => {
+          if (t === this.selectedTicker) {
+            //this.calculateMaxGraphElements();
+
+            this.graph.push(price);
+            while (this.graph.length > this.maxGraphElements) {
+              this.graph.shift();
+            }
+          }
+          t.price = price;
+        });
     },
     isTickerExist() {
       const isExists = this.tickers.some((t) => t.name.toUpperCase() === this.ticker.toUpperCase());
@@ -333,18 +293,6 @@ export default {
       const numericPrice = parseFloat(price);
       return numericPrice > 1 ? numericPrice.toFixed(2) : numericPrice.toPrecision(2);
     },
-    add() {
-      if (this.isTickerExist() || !this.ticker.length) {
-        return;
-      }
-      const currentTicker = { name: this.ticker.toUpperCase(), price: "-" };
-      this.tickers = [...this.tickers, currentTicker];
-      this.filter = "";
-      this.ticker = "";
-      subscribeToTicker(currentTicker.name, (newPrice) =>
-        sendMessageToWorker({ currency: currentTicker.name, newPrice })
-      );
-    },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name);
       if (this.selectedTicker === tickerToRemove) {
@@ -355,6 +303,7 @@ export default {
     },
     select(ticker) {
       this.selectedTicker = ticker;
+      this.$nextTick().then(this.calculateMaxGraphElements);
     },
     async fetchData() {
       try {
