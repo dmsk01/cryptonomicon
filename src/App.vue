@@ -90,7 +90,6 @@
           v-if="selectedTicker"
           :tickerName="selectedTicker.name"
           :graph="graph"
-          :maxGraphElements="maxGraphElements"
           @resetSelectedTicker="handleClose"
           @setMaxGraphElements="maxGraphElements = $event"
         />
@@ -266,8 +265,6 @@ export default {
         .filter((t) => t.name === tickerName)
         .forEach((t) => {
           if (t === this.selectedTicker) {
-            //this.calculateMaxGraphElements();
-
             this.graph.push(price);
             while (this.graph.length > this.maxGraphElements) {
               this.graph.shift();
@@ -303,7 +300,7 @@ export default {
     },
     select(ticker) {
       this.selectedTicker = ticker;
-      this.$nextTick().then(this.calculateMaxGraphElements);
+      //this.$nextTick().then(this.calculateMaxGraphElements);
     },
     async fetchData() {
       try {
