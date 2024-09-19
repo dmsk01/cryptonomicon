@@ -29,7 +29,7 @@
         <div v-if="isError" class="text-sm text-red-600">Такой тикер уже добавлен</div>
       </div>
     </div>
-    <add-button class="my-4" type="button" @click="add" :disabled="disabled" />
+    <add-button class="my-4" type="button" @click.native="add" :disabled="disabled" />
   </section>
 </template>
 
